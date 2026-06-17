@@ -1,0 +1,167 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, Star } from 'lucide-react';
+import { Review } from '../types';
+
+interface ReviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (review: Omit<Review, 'id' | 'date' | 'avatarColor'>) => void;
+  theme: 'dark' | 'light';
+}
+
+export default function ReviewModal({ isOpen, onClose, onSubmit, theme }: ReviewModalProps) {
+  const [author, setAuthor] = useState('');
+  const [text, setText] = useState('');
+  const [rating, setRating] = useState(5);
+  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!author.trim() || !text.trim()) return;
+    onSubmit({ author, text, rating });
+    setAuthor('');
+    setText('');
+    setRating(5);
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          onClick={onClose}
+        />
+
+        {/* Modal */}
+        <motion.div
+          initial={{ scale: 0.9, y: 20, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.9, y: 20, opacity: 0 }}
+          className={`relative z-10 max-w-md w-full p-8 rounded-[2.5rem] shadow-2xl border ${
+            theme === 'dark' 
+              ? 'bg-[#1a1919] border-white/10 text-white' 
+              : 'bg-white border-orange-100 text-[#261d19]'
+          }`}
+        >
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className={`absolute top-6 right-6 p-2 rounded-full transition-colors ${
+              theme === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'
+            }`}
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <h3 className="font-sora font-extrabold text-2xl mb-2">
+            Submit a Cave Confession
+          </h3>
+          <p className={`font-plus text-sm mb-6 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+            Share your burning love or fiery opinion about our gourmet fast food!
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className={`block font-sora font-bold text-xs uppercase tracking-wider mb-2 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Your Name
+              </label>
+              <input
+                type="text"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="Rohan Gupta"
+                required
+                className={`w-full bg-white/5 border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff5c00] transition-transform ${
+                  theme === 'dark' 
+                    ? 'border-white/10 text-white placeholder-gray-600' 
+                    : 'border-orange-100 text-[#261d19] placeholder-gray-400'
+                }`}
+              />
+            </div>
+
+            <div>
+              <label className={`block font-sora font-bold text-xs uppercase tracking-wider mb-1 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Heat Rating (Stars)
+              </label>
+              <div className="flex gap-2 items-center py-2">
+                {[1, 2, 3, 4, 5].map((starValue) => {
+                  const active = (hoveredRating !== null ? hoveredRating : rating) >= starValue;
+                  return (
+                    <button
+                      type="button"
+                      key={starValue}
+                      onClick={() => setRating(starValue)}
+                      onMouseEnter={() => setHoveredRating(starValue)}
+                      onMouseLeave={() => setHoveredRating(null)}
+                      className={`transition-transform scale-100 active:scale-90 hover:scale-110 p-1`}
+                    >
+                      <Star
+                        className={`w-8 h-8 transition-colors ${
+                          active 
+                            ? 'text-[#ff5c00] fill-[#ff5c00]' 
+                            : theme === 'dark' ? 'text-white/10' : 'text-gray-200'
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className={`block font-sora font-bold text-xs uppercase tracking-wider mb-2 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Your Confession
+              </label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Write your honest food testimony here..."
+                rows={4}
+                required
+                className={`w-full bg-white/5 border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff5c00] resize-none transition-transform ${
+                  theme === 'dark' 
+                    ? 'border-white/10 text-white placeholder-gray-600' 
+                    : 'border-orange-100 text-[#261d19] placeholder-gray-400'
+                }`}
+              />
+            </div>
+
+            <div className="pt-4 grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className={`w-full py-3.5 rounded-xl font-plus font-semibold text-sm border ${
+                  theme === 'dark' 
+                    ? 'border-white/10 text-gray-300 hover:bg-white/5' 
+                    : 'border-orange-100 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="w-full py-3.5 bg-[#ff5c00] hover:bg-[#ff2e00] text-white rounded-xl font-sora font-bold text-sm transition-transform active:scale-95"
+              >
+                Submit Confession
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+}

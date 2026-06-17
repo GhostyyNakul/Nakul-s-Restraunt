@@ -1,0 +1,192 @@
+export interface SpreadsheetConfig {
+  spreadsheetId: string;
+  spreadsheetUrl: string;
+}
+
+const HEADERS = [
+  "Order ID",
+  "Date",
+  "Customer Name",
+  "Customer Email",
+  "Phone Number",
+  "Delivery Address",
+  "Items Summary",
+  "Grand Total (₹)",
+  "Payment Method",
+  "Status"
+];
+
+/**
+ * Creates a brand new Google Sheet named "Nakul's Restraunt - Order Tracker"
+ * and initializes it with the standard Nakul's Restraunt column headers.
+ */
+export async function createOrdersSpreadsheet(accessToken: string): Promise<SpreadsheetConfig> {
+  const url = "https://sheets.googleapis.com/v4/spreadsheets";
+  
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      properties: {
+        title: "Nakul's Restraunt - Order Tracker 🍕"
+      },
+      sheets: [
+        {
+          properties: {
+            title: "Orders Log"
+          }
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || "Failed to create Google Sheet");
+  }
+
+  const data = await response.json();
+  const spreadsheetId = data.spreadsheetId;
+  const spreadsheetUrl = data.spreadsheetUrl;
+
+  // Initialize headers on the new sheet
+  await initializeSheetHeaders(accessToken, spreadsheetId);
+
+  return { spreadsheetId, spreadsheetUrl };
+}
+
+/**
+ * Initializes the header row on the newly created sheet
+ */
+async function initializeSheetHeaders(accessToken: string, spreadsheetId: string): Promise<void> {
+  const range = "Orders Log!A1:J1";
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      values: [HEADERS]
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Failed to append sheet headers:", errorData);
+  }
+}
+
+/**
+ * Appends a list of order values to a given Google Spreadsheet
+ */
+export async function appendOrderToSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  orderData: {
+    id: string;
+    date: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    address: string;
+    itemsSummary: string;
+    totalAmount: number;
+    paymentMethod: string;
+    status: string;
+  }
+): Promise<boolean> {
+  const range = "Orders Log!A:J";
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`;
+
+  const orderRow = [
+    orderData.id,
+    orderData.date,
+    orderData.customerName,
+    orderData.customerEmail,
+    orderData.customerPhone,
+    orderData.address,
+    orderData.itemsSummary,
+    orderData.totalAmount,
+    orderData.paymentMethod,
+    orderData.status
+  ];
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      values: [orderRow]
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Error appending order to Google Sheet:", errorData);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Syncs the entire set of existing local orders to the Google Spreadsheet.
+ * Useful for initializing or bulk sync requests.
+ */
+export async function syncAllOrdersToSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  orders: any[]
+): Promise<boolean> {
+  if (orders.length === 0) return true;
+
+  const range = "Orders Log!A2:J";
+  // We overwrite the rest of the sheet starting from row 2
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+
+  const rows = orders.map(order => {
+    const itemsSummary = order.items
+      ? order.items.map((item: any) => `${item.name} (${item.quantity}x)`).join(", ")
+      : typeof order.itemsSummary === "string" ? order.itemsSummary : JSON.stringify(order.items);
+
+    return [
+      order.id,
+      order.date,
+      order.customerName,
+      order.customerEmail || "",
+      order.customerPhone,
+      order.address,
+      itemsSummary,
+      order.totalAmount,
+      order.paymentMethod,
+      order.status
+    ];
+  });
+
+  const response = await fetch(url, {
+    method: "PUT", // We overwrite the cells below row 1
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      values: rows
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Error syncing all orders to Google Sheet:", errorData);
+    return false;
+  }
+
+  return true;
+}
